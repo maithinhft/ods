@@ -1,0 +1,215 @@
+from database.generators.generator import Generator
+from database.generators.generate_order_reviews import Revgenerator
+from database.generators.generate_payments import Paygenerator
+from database.generators.generate_order_items import Itegenerator
+from psycopg import Connection
+from datetime import datetime, timedelta
+import random
+import logging
+
+class Ordgenerator(Generator):
+
+    def __init__(self, 
+                 conn: Connection,
+                 start_date: datetime):
+        super().__init__(conn)
+
+        self.start_date = start_date
+        self.conn = conn
+        self.generate_order_reviews = Revgenerator(conn=conn)
+        self.generate_order_payments = Paygenerator(conn=conn)
+        self.generate_order_items = Itegenerator(conn=conn)
+
+    def _generate_random_timestamp(self) -> datetime:
+        hours = random.randint(0, 23)
+        minutes = random.randint(0, 59)
+        seconds = random.randint(0, 59)
+        delta = timedelta(hours=hours,
+                          minutes=minutes,
+                          seconds=seconds)
+        
+        return self.start_date + delta
+
+
+    def generate(self):
+
+        logging.basicConfig(level=logging.DEBUG)
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT max(order_id) FROM orders;
+            """
+        )
+
+        max_order_id = cur.fetchall()[0][0]
+        if max_order_id is None:
+            order_id = 0
+        else:
+            order_id = max_order_id + 1
+        
+        cur.execute(
+            """
+            SELECT max(customer_id) FROM customers;
+            """
+        )
+        max_customer_id = cur.fetchall()[0][0]
+        customer_id = random.randint(0, max_customer_id)
+        order_status = 'processing'
+        order_purchase_timestamp = self._generate_random_timestamp()
+        order_approved_at = None
+        order_delivered_carrier_date = None
+        order_delivered_customer_date = None
+        order_estimated_delivery_date = None
+
+        try:
+            cur.execute(
+                f"""
+                INSERT INTO stg_orders(
+                    order_id,
+                    customer_id,
+                    order_status,
+                    order_purchase_timestamp,
+                    order_approved_at,
+                    order_delivered_carrier_date,
+                    order_delivered_customer_date,
+                    order_estimated_delivery_date
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (order_id, customer_id, order_status, order_purchase_timestamp, order_approved_at, order_delivered_carrier_date, order_delivered_customer_date, order_estimated_delivery_date)
+            )
+            logging.info("Insert order record to stg_records table successful!")
+        except Exception as e:
+            logging.error(f"Error occur while insert order record to stg_records table! {e}")
+
+        try:
+            cur.execute(
+                f"""
+                INSERT INTO orders(
+                    order_id,
+                    customer_id,
+                    order_status,
+                    order_purchase_timestamp,
+                    order_approved_at,
+                    order_delivered_carrier_date,
+                    order_delivered_customer_date,
+                    order_estimated_delivery_date
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (order_id, customer_id, order_status, order_purchase_timestamp, order_approved_at, order_delivered_carrier_date, order_delivered_customer_date, order_estimated_delivery_date)
+            )
+            logging.info("Insert order record to records table successful!")
+        except Exception as e:
+            logging.error(f"Error occur while insert order record to records table! {e}")
+        
+        num_order_items = random.randint(1, 3)
+        payment_value = 0
+        
+        for _ in range(num_order_items):
+            payment_value += self.generate_order_items.generate(order_id=order_id)
+        
+        self.generate_order_payments.generate(order_id=order_id,
+                                              payment_value=payment_value)
+        
+        self.conn.commit()
+        
+        cur.close()
+    # Bổ sung thêm sinh order_payments order_reviews order_items ở đây
+    ####################################
+
+    def update_orders(self) -> None:
+        cur = self.conn.cursor()
+
+        try:
+            cur.execute(
+                f"""
+                UPDATE stg_orders
+                SET 
+                    order_approved_at = 
+                    CASE
+                        WHEN order_approved_at IS NULL THEN %s
+                        ELSE order_approved_at
+                    END,
+                    order_delivered_carrier_date = 
+                    CASE
+                        WHEN order_delivered_carrier_date IS NULL AND order_approved_at IS NOT NULL THEN %s
+                        ELSE order_delivered_carrier_date
+                    END,
+                    order_delivered_customer_date = 
+                    CASE
+                        WHEN order_delivered_customer_date IS NULL AND order_delivered_carrier_date IS NOT NULL THEN %s
+                        ELSE order_delivered_customer_date
+                    END,
+                    order_status =
+                    CASE
+                        WHEN order_delivered_customer_date IS NULL AND order_delivered_carrier_date IS NOT NULL THEN 'shipped'
+                        WHEN random() < 0.03 THEN 'canceled'
+                        ELSE order_status
+                    END
+                WHERE order_purchase_timestamp < %s
+                """,
+                (self._generate_random_timestamp(),
+                 self._generate_random_timestamp(),
+                 self._generate_random_timestamp(),
+                 self.start_date)
+            )
+            logging.info("Update order records in stg_orders table successful!")
+        except Exception as e:
+            logging.error(f"Error occur while update order records in stg_orders table! {e}")
+        
+        try:
+            cur.execute(
+                f"""
+                UPDATE orders o
+                SET 
+                    order_status = so.order_status,
+                    order_purchase_timestamp = so.order_purchase_timestamp,
+                    order_approved_at = so.order_approved_at,
+                    order_delivered_carrier_date = so.order_delivered_carrier_date,
+                    order_delivered_customer_date = so.order_delivered_customer_date
+                FROM stg_orders so
+                WHERE o.order_id = so.order_id
+                AND so.order_purchase_timestamp < %s
+                """,
+                (self.start_date,)
+            )
+            logging.info("Update order records in orders table successful!")
+        except Exception as e:
+            logging.error(f"Error occur while update order records in orders table! {e}")
+
+        try:
+            cur.execute(
+                f"""
+                SELECT order_id, order_delivered_customer_date
+                FROM stg_orders
+                WHERE order_status = 'shipped'
+                AND order_purchase_timestamp < %s
+                """,
+                (self.start_date,)
+            )
+            logging.info("Select order_id records in stg_orders table successful!")
+        except Exception as e:
+            logging.error(f"Error occur while select order_id records in stg_orders table! {e}")
+        
+        orders_ready_for_review = cur.fetchall()
+
+        for order_id, delivered_date in orders_ready_for_review:
+            if order_id is not None and delivered_date is not None:
+                self.generate_order_reviews.generate(order_id=order_id, delivered_date=delivered_date)
+
+        try:
+            cur.execute(
+                f"""
+                DELETE FROM stg_orders
+                WHERE (order_status = 'cancel' OR order_status = 'shipped') 
+                AND order_purchase_timestamp < %s
+                """,
+                (self.start_date,)
+            )
+            logging.info("Delete order records in stg_orders table successful!")
+        except Exception as e:
+            logging.error(f"Error occur while delete order records in stg_orders table! {e}")
+        
+        self.conn.commit()
+        cur.close()
