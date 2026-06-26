@@ -1,0 +1,70 @@
+services:
+  starrocks-fe:
+    image: starrocks/allin1-ubuntu:3.3-latest
+    container_name: starrocks-fe
+    hostname: starrocks-fe
+    ports:
+      - "8030:8030"
+      - "9030:9030"
+      - "9020:9020"
+    environment:
+      - FE_HEAP_SIZE=1G
+    command:
+      - /bin/bash
+      - -c
+      - |
+        echo "# enable shared data, set storage type, set endpoint" >> /data/deploy/starrocks/fe/conf/fe.conf
+        echo "run_mode = shared_nothing" >> /data/deploy/starrocks/fe/conf/fe.conf
+        /data/deploy/starrocks/fe/bin/start_fe.sh
+    # volumes:
+    #   - ./data/fe/meta:/data/deploy/starrocks/fe/meta
+    #   - ./data/fe/log:/data/deploy/starrocks/fe/log
+    deploy:
+      resources:
+        limits:
+          memory: 1.5g  
+    healthcheck:
+      test: 'mysql -u root -h starrocks-fe -P 9030 -e "show frontends\G" |grep "Alive: true"'
+      interval: 10s
+      timeout: 5s
+      retries: 3      
+    networks:
+      - cdc-network
+      
+  starrocks-be1:
+    image: starrocks/allin1-ubuntu:3.3-latest
+    container_name: starrocks-be1
+    depends_on:
+      starrocks-fe:
+        condition: service_healthy
+        restart: true
+    command: 
+      - /bin/bash
+      - -c
+      - |
+        sleep 15s;
+        ulimit -u 65535;
+        ulimit -n 65535;
+        echo "fe_master_host = starrocks-fe">>/data/deploy/starrocks/be/conf/be.conf
+        mysql --connect-timeout 2 -h starrocks-fe -P9030 -uroot -e "ALTER SYSTEM ADD BACKEND \"starrocks-be1:9050\";" || true       
+        /data/deploy/starrocks/be/bin/start_be.sh
+    # volumes:
+    #   - ./data/be/storage:/data/deploy/starrocks/be/storage  
+    #   - ./data/be/log:/data/deploy/starrocks/be/log         
+    ports:
+      - "8040:8040"
+    deploy:
+      resources:
+        limits:
+          memory: 4g        
+    networks:
+      - cdc-network
+    healthcheck:
+      test: 'mysql -u root -h starrocks-fe -P 9030 -e "SHOW backends\G" |grep "Alive: true"'
+      interval: 10s
+      timeout: 5s
+      retries: 3    
+
+networks:
+  cdc-network:
+    external: true

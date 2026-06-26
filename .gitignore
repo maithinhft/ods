@@ -1,0 +1,9 @@
+data-generator/
+
+data/
+
+requirement.md
+
+*.jar
+
+flink-*

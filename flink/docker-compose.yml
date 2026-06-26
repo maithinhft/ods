@@ -1,0 +1,44 @@
+services:
+  jobmanager:
+    image: flink:1.20.0-scala_2.12
+    container_name: flink-jobmanager
+    ports:
+      - "8081:8081"
+      - "9249:9249"
+    command: >
+      bash -c "mkdir -p /opt/flink/plugins/prometheus && 
+      wget -qO /opt/flink/plugins/prometheus/flink-metrics-prometheus-1.20.0.jar https://repo1.maven.org/maven2/org/apache/flink/flink-metrics-prometheus/1.20.0/flink-metrics-prometheus-1.20.0.jar && 
+      /docker-entrypoint.sh jobmanager"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+    networks:
+      - cdc-network
+
+  taskmanager:
+    image: flink:1.20.0-scala_2.12
+    container_name: flink-taskmanager
+    ports:
+      - '9250:9249'
+    depends_on:
+      - jobmanager
+    command: >
+      bash -c "mkdir -p /opt/flink/plugins/prometheus && 
+      wget -qO /opt/flink/plugins/prometheus/flink-metrics-prometheus-1.20.0.jar https://repo1.maven.org/maven2/org/apache/flink/flink-metrics-prometheus/1.20.0/flink-metrics-prometheus-1.20.0.jar && 
+      /docker-entrypoint.sh taskmanager"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+    networks:
+      - cdc-network
+
+networks:
+  cdc-network:
+    external: true
