@@ -2,25 +2,29 @@ CREATE TABLE IF NOT EXISTS products (
     product_id INT PRIMARY KEY,
     product_category_name VARCHAR(100),
     product_name VARCHAR(255),
-    product_price DOUBLE PRECISION
+    product_price DOUBLE PRECISION,
+    source_updated_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS customers (
     customer_id INT PRIMARY KEY,
     customer_city VARCHAR(100),
-    customer_state VARCHAR(100)
+    customer_state VARCHAR(100),
+    source_updated_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sellers (
     seller_id INT PRIMARY KEY,
     seller_city VARCHAR(100),
-    seller_state VARCHAR(100)
+    seller_state VARCHAR(100),
+    source_updated_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS geolocation (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     geolocation_city VARCHAR(100),
-    geolocation_state VARCHAR(100)
+    geolocation_state VARCHAR(100),
+    source_updated_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -32,6 +36,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_delivered_carrier_date TIMESTAMP,
     order_delivered_customer_date TIMESTAMP,
     order_estimated_delivery_date TIMESTAMP,
+    source_updated_at TIMESTAMP,
 
     CONSTRAINT fk_orders_customer
         FOREIGN KEY (customer_id)
@@ -46,8 +51,9 @@ CREATE TABLE IF NOT EXISTS order_items (
     shipping_limit_date DATE,
     price NUMERIC(10,2),
     freight_value NUMERIC(10,2),
+    source_updated_at TIMESTAMP,
 
-    PRIMARY KEY (order_id, product_id),
+    PRIMARY KEY (order_item_id),
 
     CONSTRAINT fk_order_items_order
         FOREIGN KEY (order_id)
@@ -69,6 +75,8 @@ CREATE TABLE IF NOT EXISTS order_payments (
 
     PRIMARY KEY (order_id),
 
+    source_updated_at TIMESTAMP,
+
     CONSTRAINT fk_order_payments_order
         FOREIGN KEY (order_id)
         REFERENCES orders(order_id)
@@ -83,6 +91,8 @@ CREATE TABLE IF NOT EXISTS order_reviews (
     review_creation_date TIMESTAMP,
     review_answer_timestamp TIMESTAMP,
 
+    source_updated_at TIMESTAMP,
+
     CONSTRAINT fk_order_reviews_order
         FOREIGN KEY (order_id)
         REFERENCES orders(order_id)
@@ -96,8 +106,42 @@ CREATE TABLE IF NOT EXISTS stg_orders (
     order_approved_at TIMESTAMP,
     order_delivered_carrier_date TIMESTAMP,
     order_delivered_customer_date TIMESTAMP,
-    order_estimated_delivery_date TIMESTAMP
+    order_estimated_delivery_date TIMESTAMP,
+    source_updated_at TIMESTAMP
 );
+
+ALTER TABLE sellers REPLICA IDENTITY FULL;
+ALTER TABLE orders REPLICA IDENTITY FULL;
+ALTER TABLE products REPLICA IDENTITY FULL;
+ALTER TABLE customers REPLICA IDENTITY FULL;
+ALTER TABLE geolocation REPLICA IDENTITY FULL;
+ALTER TABLE order_items REPLICA IDENTITY FULL;
+ALTER TABLE order_payments REPLICA IDENTITY FULL;
+ALTER TABLE order_reviews REPLICA IDENTITY FULL;
+
+CREATE OR REPLACE FUNCTION update_pg_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.source_updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER trg_products_updated_at BEFORE INSERT OR UPDATE ON products FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_customers_updated_at BEFORE INSERT OR UPDATE ON customers FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_sellers_updated_at BEFORE INSERT OR UPDATE ON sellers FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_geolocation_updated_at BEFORE INSERT OR UPDATE ON geolocation FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_orders_updated_at BEFORE INSERT OR UPDATE ON orders FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_order_items_updated_at BEFORE INSERT OR UPDATE ON order_items FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_order_payments_updated_at BEFORE INSERT OR UPDATE ON order_payments FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
+
+CREATE TRIGGER trg_order_reviews_updated_at BEFORE INSERT OR UPDATE ON order_reviews FOR EACH ROW EXECUTE PROCEDURE update_pg_updated_at_column();
 
 \copy products(product_id, product_category_name, product_name,product_price ) FROM '/home/maithinh/Documents/big_data/vdt/project/data-generator/prepared_data/products.csv' DELIMITER ',' CSV HEADER;
 
@@ -106,9 +150,6 @@ CREATE TABLE IF NOT EXISTS stg_orders (
 \copy customers(customer_id, customer_city, customer_state) FROM '/home/maithinh/Documents/big_data/vdt/project/data-generator/prepared_data/customers.csv' DELIMITER ',' CSV HEADER;
 
 \copy sellers(seller_id, seller_city, seller_state) FROM '/home/maithinh/Documents/big_data/vdt/project/data-generator/prepared_data/sellers.csv' DELIMITER ',' CSV HEADER;
-
-
--- xóa sạch tất cả các bảng
 
 TRUNCATE TABLE
     order_reviews,

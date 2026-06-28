@@ -33,7 +33,7 @@ cur = conn.cursor()
 if cur is not None:
     logging.info('Connected to postgres database !')
 
-start_date = datetime(2026, 1, 1)
+start_date = datetime(2026, 1, 6)
 end_date = datetime(2026, 3, 1)
 delta_date = timedelta(days=1)
 
@@ -42,15 +42,15 @@ seller_gen = Selgenerator(conn=conn)
 order_gen = Ordgenerator(conn=conn, start_date=start_date)
 
 while True:
-    num_customers = random.randint(0, 15)
+    num_customers = random.randint(0, 100)
     for _ in range(num_customers):
         customer_gen.generate()
     
-    num_orders = random.randint(100, 500)
+    num_orders = random.randint(10000, 50000)
     for _ in range(num_orders):
         order_gen.generate()
 
-    num_sellers = random.randint(0, 4)
+    num_sellers = random.randint(0, 30)
     for _ in range(num_sellers):
         seller_gen.generate()
     

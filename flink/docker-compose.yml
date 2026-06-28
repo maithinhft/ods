@@ -15,6 +15,9 @@ services:
         jobmanager.rpc.address: jobmanager
         metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
         metrics.reporter.prom.port: 9249
+        metrics.latency.interval: 5000       
+        metrics.latency.history-size: 128 
+        jobmanager.memory.process.size: 2048m
     networks:
       - cdc-network
 
@@ -36,6 +39,9 @@ services:
         taskmanager.numberOfTaskSlots: 2
         metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
         metrics.reporter.prom.port: 9249
+        metrics.latency.interval: 5000       
+        metrics.latency.history-size: 128
+        taskmanager.memory.process.size: 4096m
     networks:
       - cdc-network
 

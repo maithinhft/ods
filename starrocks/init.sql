@@ -3,6 +3,10 @@ CREATE TABLE IF NOT EXISTS customers (
     customer_id INT,
     customer_state VARCHAR(100),
     customer_city VARCHAR(100),
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME,
+
     INDEX idx_state (customer_state) USING BITMAP,
     INDEX idx_city (customer_city) USING BITMAP
 ) ENGINE=OLAP
@@ -14,6 +18,10 @@ CREATE TABLE IF NOT EXISTS geolocation (
     id VARCHAR(36), 
     geolocation_state VARCHAR(100),
     geolocation_city VARCHAR(100),
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME,
+
     INDEX idx_geo_state (geolocation_state) USING BITMAP
 ) ENGINE=OLAP
 PRIMARY KEY(id)
@@ -24,7 +32,11 @@ CREATE TABLE IF NOT EXISTS products (
     product_id INT,
     product_category_name VARCHAR(100),
     product_name VARCHAR(255),
-    product_price DECIMAL(10,2)
+    product_price DECIMAL(10,2),
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME
+
 ) ENGINE=OLAP
 PRIMARY KEY(product_id)
 DISTRIBUTED BY HASH(product_id);
@@ -32,7 +44,11 @@ DISTRIBUTED BY HASH(product_id);
 CREATE TABLE IF NOT EXISTS sellers (
     seller_id INT,
     seller_state VARCHAR(100),
-    seller_city VARCHAR(100)
+    seller_city VARCHAR(100),
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME
+
 ) ENGINE=OLAP
 PRIMARY KEY(seller_id)
 DISTRIBUTED BY HASH(seller_id);
@@ -47,6 +63,10 @@ CREATE TABLE IF NOT EXISTS orders (
     order_delivered_carrier_date DATETIME,
     order_delivered_customer_date DATETIME,
     order_estimated_delivery_date DATETIME,
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME,
+
     INDEX idx_status (order_status) USING BITMAP
 ) ENGINE=OLAP
 PRIMARY KEY(order_id, order_purchase_timestamp)
@@ -62,7 +82,11 @@ CREATE TABLE IF NOT EXISTS order_items (
     seller_id INT,
     shipping_limit_date DATE,
     price DECIMAL(10,2),
-    freight_value DECIMAL(10,2)
+    freight_value DECIMAL(10,2),
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME
+
 ) ENGINE=OLAP
 PRIMARY KEY(order_id, product_id, order_item_id)
 DISTRIBUTED BY HASH(order_id)
@@ -71,7 +95,10 @@ ORDER BY (order_id, product_id);
 CREATE TABLE IF NOT EXISTS order_payments (
     order_id INT,
     payment_type VARCHAR(50),
-    payment_value DECIMAL(10,2)
+    payment_value DECIMAL(10,2),
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME
 ) ENGINE=OLAP
 PRIMARY KEY(order_id, payment_type)
 DISTRIBUTED BY HASH(order_id)
@@ -84,7 +111,10 @@ CREATE TABLE IF NOT EXISTS order_reviews (
     review_score INT,
     review_comment_title VARCHAR(255),
     review_comment_message VARCHAR(65533),
-    review_answer_timestamp DATETIME
+    review_answer_timestamp DATETIME,
+
+    source_updated_at DATETIME,
+    starrocks_arrived_at DATETIME
 ) ENGINE=OLAP
 PRIMARY KEY(review_id, review_creation_date)
 PARTITION BY date_trunc('day', review_creation_date)

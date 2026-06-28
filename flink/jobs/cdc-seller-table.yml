@@ -5,8 +5,8 @@ source:
   port: 5432
   username: postgres
   password: admin
-  tables: 'olist_generate.public.(?!stg_orders$)[a-zA-Z0-9_]+'
-  slot.name: flink_slot
+  tables: 'olist_generate.public.sellers'
+  slot.name: flink_slot_seller
   scan.startup.mode: initial
   
 sink:
@@ -17,15 +17,11 @@ sink:
   username: root
   password: ""
   sink.buffer-flush.interval-ms: 5000
+  sink.properties.columns: 'seller_id, seller_state, seller_city, source_updated_at, starrocks_arrived_at=utc_timestamp()'
 
 pipeline:
   name: Postgres to StarRocks CDC
   parallelism: 1
-  local-time-zone: "UTC"
-
-transform:
-  - source-table: 'public.\.*'
-    projection: '*, CURRENT_TIMESTAMP AS starrocks_arrived_at'
 
 route:
   - source-table: 'public.\.*'
