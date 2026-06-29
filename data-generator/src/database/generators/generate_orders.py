@@ -10,15 +10,17 @@ import logging
 class Ordgenerator(Generator):
 
     def __init__(self, 
-                 conn: Connection,
+                 psql_conn: Connection,
+                 mysql_conn: Connection,
                  start_date: datetime):
-        super().__init__(conn)
+        super().__init__(psql_conn)
 
         self.start_date = start_date
-        self.conn = conn
-        self.generate_order_reviews = Revgenerator(conn=conn)
-        self.generate_order_payments = Paygenerator(conn=conn)
-        self.generate_order_items = Itegenerator(conn=conn)
+        self.psql_conn = psql_conn
+        self.mysql_conn = mysql_conn
+        self.generate_order_reviews = Revgenerator(conn=mysql_conn)
+        self.generate_order_payments = Paygenerator(conn=psql_conn)
+        self.generate_order_items = Itegenerator(conn=psql_conn)
 
     def _generate_random_timestamp(self) -> datetime:
         hours = random.randint(0, 23)
@@ -34,7 +36,7 @@ class Ordgenerator(Generator):
     def generate(self):
 
         logging.basicConfig(level=logging.DEBUG)
-        cur = self.conn.cursor()
+        cur = self.psql_conn.cursor()
         cur.execute(
             """
             SELECT max(order_id) FROM orders;
@@ -112,14 +114,14 @@ class Ordgenerator(Generator):
         self.generate_order_payments.generate(order_id=order_id,
                                               payment_value=payment_value)
         
-        self.conn.commit()
+        self.psql_conn.commit()
         
         cur.close()
     # Bổ sung thêm sinh order_payments order_reviews order_items ở đây
     ####################################
 
     def update_orders(self) -> None:
-        cur = self.conn.cursor()
+        cur = self.psql_conn.cursor()
 
         try:
             cur.execute(
@@ -211,5 +213,7 @@ class Ordgenerator(Generator):
         except Exception as e:
             logging.error(f"Error occur while delete order records in stg_orders table! {e}")
         
-        self.conn.commit()
+        self.mysql_conn.commit()
+        
+        self.psql_conn.commit()
         cur.close()

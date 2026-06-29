@@ -1,0 +1,34 @@
+source:
+  type: mysql
+  name: MySQL Source
+  hostname: 192.168.200.1
+  port: 3306
+  username: root
+  password: admin
+  tables: cdc_db.order_reviews
+  server-id: 5400-5404
+  scan.startup.mode: initial
+  jdbc.properties.allowPublicKeyRetrieval: true
+  jdbc.properties.useSSL: false
+  server-time-zone: UTC
+  
+sink:
+  type: starrocks
+  name: StarRocks Sink
+  jdbc-url: jdbc:mysql://192.168.200.1:9030
+  load-url: 192.168.200.1:8030
+  username: root
+  password: ""
+  sink.buffer-flush.interval-ms: 5000
+  sink.properties.format: json
+  sink.properties.columns: 'starrocks_arrived_at=utc_timestamp()'  
+  sink.properties.timezone: UTC
+
+pipeline:
+  name: Mysql to StarRocks CDC
+  parallelism: 1
+  local-time-zone: "UTC"
+
+route:
+  - source-table: cdc_db.order_reviews
+    sink-table: ods.order_reviews

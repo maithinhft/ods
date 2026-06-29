@@ -1,3 +1,5 @@
+-- postgresql
+
 CREATE TABLE IF NOT EXISTS products (
     product_id INT PRIMARY KEY,
     product_category_name VARCHAR(100),
@@ -188,3 +190,15 @@ FROM pg_replication_slots
 WHERE slot_name = 'flink_slot';
 
 SELECT pg_drop_replication_slot('flink_slot');
+
+-- mysql
+CREATE TABLE IF NOT EXISTS order_reviews (
+    review_id INT PRIMARY KEY,
+    order_id INT NOT NULL,
+    review_score INT,
+    review_comment_title VARCHAR(255),
+    review_comment_message TEXT,
+    review_creation_date TIMESTAMP,
+    review_answer_timestamp TIMESTAMP,
+    source_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

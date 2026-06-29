@@ -5,8 +5,8 @@ source:
   port: 5432
   username: postgres
   password: admin
-  tables: 'olist_generate.public.geolocation'
-  slot.name: flink_slot_geolocation
+  tables: 'olist_generate.public.(?!stg_orders$)[a-zA-Z0-9_]+'
+  slot.name: flink_slot
   scan.startup.mode: initial
   
 sink:
@@ -17,11 +17,14 @@ sink:
   username: root
   password: ""
   sink.buffer-flush.interval-ms: 5000
-  sink.properties.columns: 'id, geolocation_state, geolocation_city, source_updated_at, starrocks_arrived_at=utc_timestamp()'
+  sink.properties.format: json
+  sink.properties.columns: 'starrocks_arrived_at=utc_timestamp()'  
+  sink.properties.timezone: UTC
 
 pipeline:
   name: Postgres to StarRocks CDC
   parallelism: 1
+  local-time-zone: "UTC"
 
 route:
   - source-table: 'public.\.*'
