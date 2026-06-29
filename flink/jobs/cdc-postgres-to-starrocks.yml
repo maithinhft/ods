@@ -18,7 +18,7 @@ sink:
   password: ""
   sink.buffer-flush.interval-ms: 5000
   sink.properties.format: json
-  sink.properties.columns: 'starrocks_arrived_at=utc_timestamp()'  
+  sink.properties.columns: 'starrocks_arrived_at=ROUND(UNIX_TIMESTAMP(NOW(3)) * 1000)'  
   sink.properties.timezone: UTC
 
 pipeline:

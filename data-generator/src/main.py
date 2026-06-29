@@ -67,7 +67,7 @@ while True:
     for _ in range(num_customers):
         customer_gen.generate()
 
-    num_orders = random.randint(10, 50)
+    num_orders = random.randint(10000, 50000)
     for _ in range(num_orders):
         order_gen.generate()
 
