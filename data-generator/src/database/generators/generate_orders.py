@@ -56,7 +56,7 @@ class Ordgenerator(Generator):
         )
         max_customer_id = cur.fetchall()[0][0]
         customer_id = random.randint(0, max_customer_id)
-        order_status = 'processing'
+        order_status = 'created'
         order_purchase_timestamp = self._generate_random_timestamp()
         order_approved_at = None
         order_delivered_carrier_date = None
@@ -129,32 +129,30 @@ class Ordgenerator(Generator):
                 UPDATE stg_orders
                 SET 
                     order_approved_at = 
-                    CASE
-                        WHEN order_approved_at IS NULL THEN %s
-                        ELSE order_approved_at
-                    END,
+                        CASE WHEN order_status = 'created' THEN %s ELSE order_approved_at END,
+                        
                     order_delivered_carrier_date = 
-                    CASE
-                        WHEN order_delivered_carrier_date IS NULL AND order_approved_at IS NOT NULL THEN %s
-                        ELSE order_delivered_carrier_date
-                    END,
+                        CASE WHEN order_status = 'processing' THEN %s ELSE order_delivered_carrier_date END,
+                        
                     order_delivered_customer_date = 
-                    CASE
-                        WHEN order_delivered_customer_date IS NULL AND order_delivered_carrier_date IS NOT NULL THEN %s
-                        ELSE order_delivered_customer_date
-                    END,
+                        CASE WHEN order_status = 'shipped' THEN %s ELSE order_delivered_customer_date END,
+                    
                     order_status =
-                    CASE
-                        WHEN order_delivered_customer_date IS NULL AND order_delivered_carrier_date IS NOT NULL THEN 'shipped'
-                        WHEN random() < 0.03 THEN 'canceled'
-                        ELSE order_status
-                    END
+                        CASE
+                            WHEN random() < 0.03 THEN 'canceled'
+                            WHEN order_status = 'shipped' THEN 'delivered'
+                            WHEN order_status = 'processing' THEN 'shipped'
+                            WHEN order_status = 'invoiced' THEN 'processing'
+                            WHEN order_status = 'approved' THEN 'invoiced'
+                            WHEN order_status = 'created' THEN 'approved'
+                            ELSE order_status
+                        END
                 WHERE order_purchase_timestamp < %s
                 """,
-                (self._generate_random_timestamp(),
-                 self._generate_random_timestamp(),
-                 self._generate_random_timestamp(),
-                 self.start_date)
+                (self._generate_random_timestamp(), 
+                 self._generate_random_timestamp(), 
+                 self._generate_random_timestamp(), 
+                 self.start_date)                  
             )
             logging.info("Update order records in stg_orders table successful!")
         except Exception as e:
@@ -185,7 +183,7 @@ class Ordgenerator(Generator):
                 f"""
                 SELECT order_id, order_delivered_customer_date
                 FROM stg_orders
-                WHERE order_status = 'shipped'
+                WHERE order_status = 'delivered'
                 AND order_purchase_timestamp < %s
                 """,
                 (self.start_date,)
@@ -204,7 +202,7 @@ class Ordgenerator(Generator):
             cur.execute(
                 f"""
                 DELETE FROM stg_orders
-                WHERE (order_status = 'cancel' OR order_status = 'shipped') 
+                WHERE (order_status = 'canceled' OR order_status = 'delivered') 
                 AND order_purchase_timestamp < %s
                 """,
                 (self.start_date,)

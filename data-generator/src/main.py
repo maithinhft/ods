@@ -53,7 +53,7 @@ mysql_cur = mysql_conn.cursor()
 if mysql_cur is not None:
     logging.info('Connected to mysql database !')
 
-start_date = datetime(2026, 1, 6)
+start_date = datetime(2026, 1, 1)
 end_date = datetime(2026, 3, 1)
 delta_date = timedelta(days=1)
 
@@ -67,7 +67,7 @@ while True:
     for _ in range(num_customers):
         customer_gen.generate()
 
-    num_orders = random.randint(10000, 50000)
+    num_orders = random.randint(1000, 5000)
     for _ in range(num_orders):
         order_gen.generate()
 

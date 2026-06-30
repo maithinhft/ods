@@ -64,8 +64,8 @@ ORDER BY (order_purchase_timestamp, order_status, order_id);
 
 CREATE TABLE IF NOT EXISTS order_items (
     order_id INT,
-    product_id INT,
     order_item_id VARCHAR(36),
+    product_id INT,
     seller_id INT,
     shipping_limit_date DATE,
     price DECIMAL(10,2),
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     source_updated_at BIGINT,
     starrocks_arrived_at BIGINT
 ) ENGINE=OLAP
-PRIMARY KEY(order_id, product_id, order_item_id)
+PRIMARY KEY(order_id, order_item_id)
 DISTRIBUTED BY HASH(order_id)
 ORDER BY (order_id, product_id);
 

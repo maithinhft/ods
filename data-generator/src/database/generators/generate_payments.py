@@ -16,9 +16,9 @@ class Paygenerator(Generator):
         
         logging.basicConfig(level=logging.DEBUG)
         cur = self.conn.cursor()
-        payment_list = ['credit_card', 'boleto', 'voucher', 'debit_card', 'cash']
+        payment_list = ['credit_card', 'boleto', 'voucher', 'debit_card']
 
-        payment_idx = random.randint(0, 4)
+        payment_idx = random.randint(0, 3)
         payment_type = payment_list[payment_idx]
         try:
             cur.execute(
