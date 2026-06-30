@@ -24,3 +24,5 @@ wheels/
 .env
 
 notes.md
+
+tmp/

@@ -5,7 +5,7 @@ source:
   port: 3306
   username: root
   password: admin
-  tables: cdc_db.order_reviews
+  tables: 'cdc_db.(orders|order_items|order_payments|order_reviews)'
   server-id: 5400-5404
   scan.startup.mode: initial
   jdbc.properties.allowPublicKeyRetrieval: true
@@ -30,5 +30,6 @@ pipeline:
   local-time-zone: "UTC"
 
 route:
-  - source-table: cdc_db.order_reviews
-    sink-table: ods.order_reviews
+  - source-table: 'cdc_db.\.*'
+    sink-table: 'ods.<>'
+    replace-symbol: '<>'

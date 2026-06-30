@@ -5,7 +5,7 @@ source:
   port: 5432
   username: postgres
   password: admin
-  tables: 'olist_generate.public.(?!stg_orders$)[a-zA-Z0-9_]+'
+  tables: 'olist_generate.public.(customers|geolocation|products|sellers)'
   slot.name: flink_slot
   scan.startup.mode: initial
   
