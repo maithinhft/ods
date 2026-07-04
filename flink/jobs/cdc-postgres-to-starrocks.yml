@@ -8,7 +8,40 @@ source:
   tables: 'olist_generate.public.(customers|geolocation|products|sellers)'
   slot.name: flink_slot
   scan.startup.mode: initial
-  
+
+transform:
+  - source-table: olist_generate.public.customers
+    projection: >
+      customer_id,
+      CASE WHEN customer_state IS NOT NULL THEN UPPER(TRIM(customer_state)) ELSE NULL END AS customer_state,
+      CASE WHEN customer_city IS NOT NULL THEN LOWER(TRIM(customer_city)) ELSE NULL END AS customer_city,
+      source_updated_at
+    filter: "customer_id IS NOT NULL"
+
+  - source-table: olist_generate.public.sellers
+    projection: >
+      seller_id,
+      CASE WHEN seller_state IS NOT NULL THEN UPPER(TRIM(seller_state)) ELSE NULL END AS seller_state,
+      CASE WHEN seller_city IS NOT NULL THEN LOWER(TRIM(seller_city)) ELSE NULL END AS seller_city,
+      source_updated_at
+    filter: "seller_id IS NOT NULL"
+
+  - source-table: olist_generate.public.products
+    projection: >
+      product_id,
+      CASE WHEN product_category_name IS NOT NULL THEN LOWER(TRIM(product_category_name)) ELSE NULL END AS product_category_name,
+      CASE WHEN product_name IS NOT NULL THEN TRIM(product_name) ELSE NULL END AS product_name,
+      CASE WHEN product_price < 0 THEN 0.00 ELSE product_price END AS product_price,
+      source_updated_at
+    filter: "product_id IS NOT NULL AND product_price IS NOT NULL"
+
+  - source-table: olist_generate.public.geolocation
+    projection: >
+      id,
+      CASE WHEN geolocation_state IS NOT NULL THEN UPPER(TRIM(geolocation_state)) ELSE NULL END AS geolocation_state,
+      CASE WHEN geolocation_city IS NOT NULL THEN LOWER(TRIM(geolocation_city)) ELSE NULL END AS geolocation_city,
+      source_updated_at
+
 sink:
   type: starrocks
   name: StarRocks Sink
@@ -24,7 +57,7 @@ sink:
 pipeline:
   name: Postgres to StarRocks CDC
   parallelism: 1
-  local-time-zone: "UTC"
+  local-time-zone: UTC
 
 route:
   - source-table: 'public.\.*'

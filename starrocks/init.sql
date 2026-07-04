@@ -1,3 +1,5 @@
+--starrocks
+
 CREATE TABLE IF NOT EXISTS customers (
     customer_id INT,
     customer_state VARCHAR(100),
@@ -86,7 +88,7 @@ CREATE TABLE IF NOT EXISTS order_payments (
 ) ENGINE=OLAP
 PRIMARY KEY(order_id, payment_type)
 DISTRIBUTED BY HASH(order_id)
-ORDER BY (order_id, payment_type);
+ORDER BY (payment_type, order_id);
 
 CREATE TABLE IF NOT EXISTS order_reviews (
     review_id INT,
@@ -106,10 +108,12 @@ ORDER BY (review_creation_date, review_id);
 
 CREATE MATERIALIZED VIEW mv_orders_latency
 REFRESH ASYNC EVERY(INTERVAL 1 MINUTE)
+PARTITION BY purchase_date 
 DISTRIBUTED BY HASH(time_bucket)
 ORDER BY (time_bucket)
 AS
 SELECT 
+    date_trunc('day', order_purchase_timestamp) AS purchase_date, 
     date_trunc('minute', from_unixtime(starrocks_arrived_at / 1000)) AS time_bucket,
     (starrocks_arrived_at - source_updated_at) AS latency_ms
 FROM orders;
