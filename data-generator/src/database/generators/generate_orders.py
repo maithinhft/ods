@@ -24,6 +24,24 @@ class Ordgenerator(Generator):
         self.generate_order_payments = Paygenerator(conn=mysql_conn)
         self.generate_order_items = Itegenerator(psql_conn=psql_conn, mysql_conn=mysql_conn)
 
+        # Cache max_customer_id and use order_id counter
+        self._refresh_customer_cache()
+        self._init_order_counter()
+
+    def _refresh_customer_cache(self):
+        """Refresh cached max_customer_id from Postgres. Call after generating customers each day."""
+        psql_cur = self.psql_conn.cursor()
+        psql_cur.execute("SELECT COALESCE(max(customer_id), 0) FROM customers")
+        self._max_customer_id = psql_cur.fetchone()[0]
+        psql_cur.close()
+
+    def _init_order_counter(self):
+        """Initialize order_id counter from MySQL."""
+        mysql_cur = self.mysql_conn.cursor()
+        mysql_cur.execute("SELECT COALESCE(max(order_id), -1) FROM orders")
+        self._next_order_id = mysql_cur.fetchone()[0] + 1
+        mysql_cur.close()
+
     def _generate_random_timestamp(self) -> datetime:
         hours = random.randint(0, 23)
         minutes = random.randint(0, 59)
@@ -32,18 +50,12 @@ class Ordgenerator(Generator):
         return self.start_date + delta
 
     def generate(self):
-        logging.basicConfig(level=logging.DEBUG)
-        psql_cur = self.psql_conn.cursor()
         mysql_cur = self.mysql_conn.cursor()
         
-        mysql_cur.execute("SELECT max(order_id) FROM orders;")
-        result = mysql_cur.fetchall()
-        max_order_id = result[0][0] if result else None
-        order_id = 0 if max_order_id is None else max_order_id + 1
+        order_id = self._next_order_id
+        self._next_order_id += 1
         
-        psql_cur.execute("SELECT max(customer_id) FROM customers;")
-        max_customer_id = psql_cur.fetchall()[0][0]
-        customer_id = random.randint(0, max_customer_id)
+        customer_id = random.randint(0, self._max_customer_id)
         
         order_status = 'created'
         order_purchase_timestamp = self._generate_random_timestamp()
@@ -65,9 +77,8 @@ class Ordgenerator(Generator):
                  order_approved_at, order_delivered_carrier_date, 
                  order_delivered_customer_date, order_estimated_delivery_date)
             )
-            logging.info("Insert order record to stg_orders table successful!")
         except Exception as e:
-            logging.error(f"Error occur while insert order record to stg_orders table! {e}")
+            logging.error(f"Error inserting stg_orders record: {e}")
 
         try:
             mysql_cur.execute(
@@ -82,9 +93,8 @@ class Ordgenerator(Generator):
                  order_approved_at, order_delivered_carrier_date, 
                  order_delivered_customer_date, order_estimated_delivery_date)
             )
-            logging.info("Insert order record to orders table successful!")
         except Exception as e:
-            logging.error(f"Error occur while insert order record to orders table! {e}")
+            logging.error(f"Error inserting orders record: {e}")
         
         num_order_items = random.randint(1, 3)
         payment_value = 0
@@ -94,8 +104,8 @@ class Ordgenerator(Generator):
         
         self.generate_order_payments.generate(order_id=order_id, payment_value=payment_value)
         
+        # Single commit per order (covers order + items + payment)
         self.mysql_conn.commit()
-        psql_cur.close()
         mysql_cur.close()
 
     def update_orders(self) -> None:
@@ -125,9 +135,8 @@ class Ordgenerator(Generator):
                  self._generate_random_timestamp(), 
                  self.start_date)                  
             )
-            logging.info("Update order records in stg_orders table successful!")
         except Exception as e:
-            logging.error(f"Error occur while update order records in stg_orders table! {e}")
+            logging.error(f"Error updating stg_orders: {e}")
         
         try:
             mysql_cur.execute(
@@ -144,9 +153,8 @@ class Ordgenerator(Generator):
                 """,
                 (self.start_date,)
             )
-            logging.info("Update order records in orders table successful!")
         except Exception as e:
-            logging.error(f"Error occur while update order records in orders table! {e}")
+            logging.error(f"Error updating orders: {e}")
 
         try:
             mysql_cur.execute(
@@ -158,9 +166,8 @@ class Ordgenerator(Generator):
                 """,
                 (self.start_date,)
             )
-            logging.info("Select order_id records in stg_orders table successful!")
         except Exception as e:
-            logging.error(f"Error occur while select order_id records in stg_orders table! {e}")
+            logging.error(f"Error selecting delivered orders: {e}")
         
         orders_ready_for_review = mysql_cur.fetchall()
 
@@ -177,9 +184,8 @@ class Ordgenerator(Generator):
                 """,
                 (self.start_date,)
             )
-            logging.info("Delete order records in stg_orders table successful!")
         except Exception as e:
-            logging.error(f"Error occur while delete order records in stg_orders table! {e}")
+            logging.error(f"Error deleting completed stg_orders: {e}")
         
         self.mysql_conn.commit()
         mysql_cur.close()
