@@ -5,7 +5,7 @@ source:
   port: 5432
   username: postgres
   password: admin
-  tables: 'olist_generate.public.(?!stg_orders$)[a-zA-Z0-9_]+'
+  tables: 'olist_generate.public.(customers|geolocation|products|sellers)'
   slot.name: flink_slot
   scan.startup.mode: initial
   
@@ -16,11 +16,15 @@ sink:
   load-url: 192.168.200.1:8030
   username: root
   password: ""
-  sink.buffer-flush.interval-ms: 10000
+  sink.buffer-flush.interval-ms: 5000
+  sink.properties.format: json
+  sink.properties.columns: 'starrocks_arrived_at=ROUND(UNIX_TIMESTAMP(NOW(3)) * 1000)'  
+  sink.properties.timezone: UTC
 
 pipeline:
   name: Postgres to StarRocks CDC
   parallelism: 1
+  local-time-zone: "UTC"
 
 route:
   - source-table: 'public.\.*'

@@ -1,9 +1,28 @@
-data-generator/
+# data-generator/
 
 data/
+
+sample_data
 
 requirement.md
 
 *.jar
 
 flink-*
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.env
+
+notes.md
+
+tmp/
