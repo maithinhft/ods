@@ -14,7 +14,7 @@ import random
 import time
 
 load_dotenv()
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 POSTGRES_HOST = os.environ.get('POSTGRES_HOST')
 POSTGRES_DBNAME = os.environ.get('POSTGRES_DBNAME')
@@ -44,14 +44,8 @@ mysql_conn = mysql.connector.connect(
     database=MYSQL_DATABASE
 )
 
-
-psql_cur = psql_conn.cursor()
-if psql_cur is not None:
-    logging.info('Connected to postgres database !')
-
-mysql_cur = mysql_conn.cursor()
-if mysql_cur is not None:
-    logging.info('Connected to mysql database !')
+logging.info('Connected to postgres database!')
+logging.info('Connected to mysql database!')
 
 start_date = datetime(2026, 1, 1)
 end_date = datetime(2026, 3, 1)
@@ -63,31 +57,37 @@ order_gen = Ordgenerator(
     psql_conn=psql_conn, mysql_conn=mysql_conn, start_date=start_date)
 
 while True:
+    # Generate new customers
     num_customers = random.randint(0, 100)
     for _ in range(num_customers):
         customer_gen.generate()
 
-    num_orders = random.randint(10, 50)
+    # Refresh cached max_customer_id for order generation
+    order_gen._refresh_customer_cache()
+
+    # Generate orders (uses cached customer/product/seller data)
+    num_orders = random.randint(1000, 5000)
     for _ in range(num_orders):
         order_gen.generate()
 
+    # Generate new sellers
     num_sellers = random.randint(0, 30)
     for _ in range(num_sellers):
         seller_gen.generate()
+
+    # Refresh order_items' cached seller data after new sellers are added
+    order_gen.generate_order_items.refresh_reference_data()
 
     order_gen.update_orders()
 
     start_date += delta_date
     order_gen.start_date = start_date
 
-    logging.info(f"completed generate data day: {start_date}")
+    logging.warning(f"Completed generating data for day: {start_date}")
 
-    time.sleep(10)
+    time.sleep(1)
     if start_date == end_date:
         break
 
-psql_cur.close()
 psql_conn.close()
-
-mysql_cur.close()
 mysql_conn.close()

@@ -8,27 +8,22 @@ class Revgenerator(Generator):
 
     def __init__(self, conn):
         super().__init__(conn)
-
         self.conn = conn
+
+        # Use counter instead of SELECT max() every time
+        cur = conn.cursor()
+        cur.execute("SELECT COALESCE(max(review_id), -1) FROM order_reviews")
+        self._next_id = cur.fetchone()[0] + 1
+        cur.close()
     
     def generate(self, 
                  order_id: int, 
                  delivered_date: datetime):
-        logging.basicConfig(level=logging.DEBUG)
         cur = self.conn.cursor()
 
         review_score = random.randint(1, 5)
-        cur.execute(
-            """
-            SELECT max(review_id) FROM order_reviews;
-            """
-        )
-
-        max_review_id = cur.fetchall()[0][0]
-        if max_review_id is None:
-            review_id = 0
-        else:
-            review_id = max_review_id + 1
+        review_id = self._next_id
+        self._next_id += 1
         
         creation_offset_minutes = random.randint(5, 60)
         review_creation_date = delivered_date + timedelta(minutes=creation_offset_minutes)
@@ -38,7 +33,7 @@ class Revgenerator(Generator):
         
         try:
             cur.execute(
-                f"""
+                """
                 INSERT INTO order_reviews(
                     review_id,
                     order_id,
@@ -52,6 +47,7 @@ class Revgenerator(Generator):
                 """,
                 (review_id, order_id, review_score, None, None, review_creation_date, review_answer_timestamp)
             )
-            logging.info("Insert order record to order_reviews table successful!")
         except Exception as e:
-            logging.error(f"Error occur while insert order record to order_reviews table! {e}")
+            logging.error(f"Error inserting order_review record: {e}")
+        
+        cur.close()

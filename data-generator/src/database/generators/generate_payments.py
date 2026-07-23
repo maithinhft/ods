@@ -10,12 +10,10 @@ class Paygenerator(Generator):
         self.conn = conn 
     
     def generate(self, order_id: int, payment_value: float):
-        logging.basicConfig(level=logging.DEBUG)
         cur = self.conn.cursor()
         payment_list = ['credit_card', 'boleto', 'voucher', 'debit_card']
 
-        payment_idx = random.randint(0, 3)
-        payment_type = payment_list[payment_idx]
+        payment_type = random.choice(payment_list)
         try:
             cur.execute(
                 """
@@ -25,9 +23,8 @@ class Paygenerator(Generator):
                 """,
                 (order_id, payment_type, payment_value)
             )
-            logging.info("Insert order record to order_payments table successful!")
         except Exception as e:
-            logging.error(f"Error occur while insert order record to order_payments table! {e}")
+            logging.error(f"Error inserting order_payment record: {e}")
         
-        self.conn.commit()
+        # No commit here — batched at Ordgenerator.generate() level
         cur.close()

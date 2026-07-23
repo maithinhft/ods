@@ -11,7 +11,56 @@ source:
   jdbc.properties.allowPublicKeyRetrieval: true
   jdbc.properties.useSSL: false
   server-time-zone: UTC
+
+transform:
+  - source-table: cdc_db.orders
+    projection: >
+      order_id,
+      CAST(order_purchase_timestamp AS TIMESTAMP) AS order_purchase_timestamp,
+      CASE WHEN order_status IS NOT NULL THEN UPPER(TRIM(order_status)) ELSE NULL END AS order_status,
+      customer_id,
+      order_approved_at,
+      order_delivered_carrier_date,
+      order_delivered_customer_date,
+      order_estimated_delivery_date,
+      source_updated_at
+    filter: "order_id IS NOT NULL AND customer_id IS NOT NULL"
+
+  - source-table: cdc_db.order_items
+    projection: >
+      order_id,
+      order_item_id,
+      product_id,
+      seller_id,
+      shipping_limit_date,
+      CASE WHEN price < 0 THEN CAST(0.00 AS DECIMAL(10, 2)) ELSE price END AS price,
+      CASE WHEN freight_value < 0 THEN CAST(0.00 AS DECIMAL(10, 2)) ELSE freight_value END AS freight_value,
+      source_updated_at
+    filter: "order_id IS NOT NULL AND product_id IS NOT NULL AND seller_id IS NOT NULL"
   
+  - source-table: cdc_db.order_reviews
+    projection: >
+      review_id,
+      review_creation_date,
+      order_id,
+      CASE 
+        WHEN review_score < 1 THEN 1
+        WHEN review_score > 5 THEN 5
+        ELSE review_score
+      END AS review_score,
+      CASE WHEN review_comment_title IS NOT NULL THEN TRIM(review_comment_title) ELSE NULL END AS review_comment_title,
+      CASE WHEN review_comment_message IS NOT NULL THEN TRIM(review_comment_message) ELSE NULL END AS review_comment_message,
+      review_answer_timestamp,
+      source_updated_at
+    filter: "review_id IS NOT NULL AND order_id IS NOT NULL"
+
+  - source-table: cdc_db.order_payments
+    projection: >
+      order_id,
+      COALESCE(payment_type, 'unknown') AS payment_type,
+      CASE WHEN payment_value < 0 THEN CAST(0.00 AS DECIMAL(10, 2)) ELSE payment_value END AS payment_value,
+      source_updated_at
+    filter: "order_id IS NOT NULL"
 sink:
   type: starrocks
   name: StarRocks Sink
@@ -27,7 +76,7 @@ sink:
 pipeline:
   name: Mysql to StarRocks CDC
   parallelism: 1
-  local-time-zone: "UTC"
+  local-time-zone: UTC
 
 route:
   - source-table: 'cdc_db.\.*'
